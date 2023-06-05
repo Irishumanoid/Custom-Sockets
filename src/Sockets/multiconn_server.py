@@ -2,6 +2,8 @@ import socket
 import sys
 import selectors
 import types
+import time
+
 
 sel = selectors.DefaultSelector()
 
@@ -11,6 +13,7 @@ lsock.bind((host, port))
 lsock.listen()
 print(f"Listening on {(host, port)}")
 lsock.setblocking(False)
+lsock.settimeout(20) #prevent client requests from acculumating
 sel.register(lsock, selectors.EVENT_READ, data=None) #wait for data on multiple sockets
 
 
@@ -41,6 +44,13 @@ def service_connection(key, mask):
             sent = sock.send(data.outb) #echo outbound data to client
             data.outb = data.outb[sent:] #remove bytes from buffer by taking array slice
 
+    deadline = time.time() + 20
+    while not data:
+        cur_time = time.time()
+        if cur_time > deadline:
+            raise TimeoutError("no more input from socket")
+        lsock.settimeout(deadline - time.time())
+
 
 try:
     while True:
@@ -54,6 +64,12 @@ except KeyboardInterrupt:
     print("Caught keyboard interrupt, exiting")
 finally:
     sel.close()
+
+
+
+
+
+
 
 
 
